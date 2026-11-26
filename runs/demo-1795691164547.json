@@ -1,0 +1,155 @@
+{
+  "treasury": "0xc5b66109bb440bc6fc6dfa94acbc8c244be69ea1",
+  "agent": "0xeC83829de16d36EAA4D61a35d5351B6ab142F610",
+  "client": "0xDcD7Ec5f9E0925B8317f558d03E1B9948EbEB1e6",
+  "log": [
+    {
+      "step": "agent sets rule (20%, 60/40, 1%)",
+      "tx": "0x2141b0a8980ce6ea918bfd317b43b1211771df5fa0bf01a6ed87be2162c85c00",
+      "block": 63846265
+    },
+    {
+      "step": "client approves USDC",
+      "tx": "0xc2e2a6d4d1b1bc0d96ff544d1715f7d89c2cdbc68ef51ab74070595f2fa2a80c",
+      "block": 63846274
+    },
+    {
+      "step": "job 1: pays agent 0.5 USDC",
+      "tx": "0x97a57531c014970a26aabd74d9d37ec708fa0308bf6ac5ae279bf6985fbe5f0e",
+      "block": 63846281
+    },
+    {
+      "holdings": {
+        "tag": "after job 1",
+        "cashUsdc": "0.4",
+        "pendingUsdc": "0.1",
+        "stocks": []
+      }
+    },
+    {
+      "step": "job 2: pays agent 0.5 USDC",
+      "tx": "0x07052e0a5f9914a3f2d2640a38f9ebc32f0556037601038ea32735ac6125b11a",
+      "block": 63846289
+    },
+    {
+      "holdings": {
+        "tag": "after job 2",
+        "cashUsdc": "0.8",
+        "pendingUsdc": "0",
+        "stocks": [
+          {
+            "symbol": "tNVDAc",
+            "raw": "78953",
+            "shareEquivalents": "0.00083785",
+            "usd": "0.119637"
+          },
+          {
+            "symbol": "tAAPLc",
+            "raw": "22461",
+            "shareEquivalents": "0.00022461",
+            "usd": "0.079755"
+          }
+        ]
+      }
+    },
+    {
+      "step": "job 3: pays agent 1 USDC",
+      "tx": "0xe491318f313e7c4964a063d524a29ecff28799b207f0668591b2b2f4c978599c",
+      "block": 63846299
+    },
+    {
+      "holdings": {
+        "tag": "after job 3",
+        "cashUsdc": "1.6",
+        "pendingUsdc": "0",
+        "stocks": [
+          {
+            "symbol": "tNVDAc",
+            "raw": "157906",
+            "shareEquivalents": "0.00167571",
+            "usd": "0.239275"
+          },
+          {
+            "symbol": "tAAPLc",
+            "raw": "44922",
+            "shareEquivalents": "0.00044922",
+            "usd": "0.15951"
+          }
+        ]
+      }
+    },
+    {
+      "holdings": {
+        "tag": "before dividend",
+        "cashUsdc": "1.6",
+        "pendingUsdc": "0",
+        "stocks": [
+          {
+            "symbol": "tNVDAc",
+            "raw": "157906",
+            "shareEquivalents": "0.00167571",
+            "usd": "0.239275"
+          },
+          {
+            "symbol": "tAAPLc",
+            "raw": "44922",
+            "shareEquivalents": "0.00044922",
+            "usd": "0.15951"
+          }
+        ]
+      }
+    },
+    {
+      "step": "issuer: tNVDAc 2% dividend",
+      "tx": "0xce587c2c1d4490644d97d04ec2833c31a1ff284a484e5e7acc778e4240db05de",
+      "block": 63846316
+    },
+    {
+      "holdings": {
+        "tag": "after dividend",
+        "cashUsdc": "1.6",
+        "pendingUsdc": "0",
+        "stocks": [
+          {
+            "symbol": "tNVDAc",
+            "raw": "157906",
+            "shareEquivalents": "0.00170922",
+            "usd": "0.239275"
+          },
+          {
+            "symbol": "tAAPLc",
+            "raw": "44922",
+            "shareEquivalents": "0.00044922",
+            "usd": "0.15951"
+          }
+        ]
+      }
+    },
+    {
+      "step": "agent withdraws 0.5 USDC cash",
+      "tx": "0x289aff559a8e028ad8249bae1b4456f6d55dadbdfe854f9901f9c6e2746d6fce",
+      "block": 63846476
+    },
+    {
+      "holdings": {
+        "tag": "after withdrawal",
+        "cashUsdc": "1.1",
+        "pendingUsdc": "0",
+        "stocks": [
+          {
+            "symbol": "tNVDAc",
+            "raw": "157906",
+            "shareEquivalents": "0.00170922",
+            "usd": "0.239275"
+          },
+          {
+            "symbol": "tAAPLc",
+            "raw": "44922",
+            "shareEquivalents": "0.00044922",
+            "usd": "0.15951"
+          }
+        ]
+      }
+    }
+  ]
+}

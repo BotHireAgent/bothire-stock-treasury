@@ -77,6 +77,11 @@ contract AgentStockTreasury {
     /// Feeds update at least daily on market days and pause over weekends: allow a long weekend.
     uint256 public constant MAX_NAV_AGE = 80 hours;
     uint256 public constant CHANGE_DELAY = 2 days;
+    /// A proposed change must be executed within this window after it becomes executable, or re-proposed.
+    uint256 public constant CHANGE_WINDOW = 7 days;
+    /// Fixed gas budget for one buy (up to MAX_LEGS DEX swaps). A payment carries at least this much
+    /// extra gas whenever a buy is due; whatever happens inside the budget only defers the buy.
+    uint256 public constant INVEST_GAS = 2_000_000;
 
     IERC20Min public immutable usdc;
     address public owner;
@@ -93,6 +98,10 @@ contract AgentStockTreasury {
     mapping(address agent => uint256) public pendingUsdc; // waiting to be invested
     mapping(address agent => uint256) public cashUsdc; // not invested, withdrawable
     mapping(address agent => mapping(address token => uint256)) public rawHeld;
+    /// If an agent turns this on, only payments from its approved payers (e.g. BotHire settlement) can
+    /// trigger a buy; other payments are still accepted and only queue up.
+    mapping(address agent => bool) public onlyApprovedPayersTrigger;
+    mapping(address agent => mapping(address payer => bool)) public approvedPayer;
 
     uint256 private locked = 1;
 
@@ -109,6 +118,10 @@ contract AgentStockTreasury {
     event AdapterProposed(address adapter, uint64 eta);
     event AdapterSet(address adapter);
     event OwnershipTransferred(address from, address to);
+    event OwnershipTransferStarted(address from, address to);
+    event ProposalCancelled(address target);
+    event PayerPolicySet(address indexed agent, bool onlyApproved);
+    event PayerApproved(address indexed agent, address indexed payer, bool approved);
 
     error NotOwner();
     error BadRule();
@@ -120,8 +133,11 @@ contract AgentStockTreasury {
     error Reentrant();
     error OnlySelf();
     error OutOfGasForBuy();
+    error ZeroAmount();
+    error Expired();
 
     constructor(IERC20Min usdc_, ISwapAdapter adapter_, address[] memory tokens, address[] memory feeds) {
+        if (usdc_.decimals() != 6) revert BadListing(); // the price maths assumes 6-decimal USDC
         usdc = usdc_;
         owner = msg.sender;
         adapter = adapter_;
@@ -157,6 +173,7 @@ contract AgentStockTreasury {
     function executeListing(address token) external onlyOwner {
         Pending memory p = pendingListing[token];
         if (p.eta == 0 || block.timestamp < p.eta) revert TooEarly();
+        if (block.timestamp > p.eta + CHANGE_WINDOW) revert Expired();
         delete pendingListing[token];
         _list(token, p.feed);
     }
@@ -170,13 +187,25 @@ contract AgentStockTreasury {
     function executeAdapter() external onlyOwner {
         Pending memory p = pendingAdapter;
         if (p.eta == 0 || block.timestamp < p.eta) revert TooEarly();
+        if (block.timestamp > p.eta + CHANGE_WINDOW) revert Expired();
         delete pendingAdapter;
         adapter = ISwapAdapter(p.target);
         emit AdapterSet(p.target);
     }
 
+    function cancelListing(address token) external onlyOwner {
+        delete pendingListing[token];
+        emit ProposalCancelled(token);
+    }
+
+    function cancelAdapter() external onlyOwner {
+        emit ProposalCancelled(pendingAdapter.target);
+        delete pendingAdapter;
+    }
+
     function transferOwnership(address to) external onlyOwner {
         pendingOwner = to;
+        emit OwnershipTransferStarted(owner, to);
     }
 
     function acceptOwnership() external {
@@ -219,12 +248,24 @@ contract AgentStockTreasury {
     function depositEarning(address agent, uint256 amount, bytes32 jobRef) external nonReentrant {
         Rule memory r = ruleOf[agent];
         if (!r.active) revert NoRule();
+        if (amount == 0) revert ZeroAmount();
         if (!usdc.transferFrom(msg.sender, address(this), amount)) revert TransferFailed();
         uint256 toStocks = amount * r.shareBps / 10_000;
         pendingUsdc[agent] += toStocks;
         cashUsdc[agent] += amount - toStocks;
         emit EarningDeposited(agent, msg.sender, amount, toStocks, jobRef);
-        _tryInvest(agent);
+        if (!onlyApprovedPayersTrigger[agent] || approvedPayer[agent][msg.sender]) _tryInvest(agent);
+    }
+
+    /// @notice The agent can limit which payers' payments may trigger a buy (the timing of a buy).
+    function setPayerPolicy(bool onlyApproved) external {
+        onlyApprovedPayersTrigger[msg.sender] = onlyApproved;
+        emit PayerPolicySet(msg.sender, onlyApproved);
+    }
+
+    function setApprovedPayer(address payer, bool approved) external {
+        approvedPayer[msg.sender][payer] = approved;
+        emit PayerApproved(msg.sender, payer, approved);
     }
 
     /// @notice The agent (only) retries investing its pending USDC, e.g. after a stale feed recovered.
@@ -274,7 +315,13 @@ contract AgentStockTreasury {
         for (uint256 i; i < ts.length; i++) {
             uint256 raw = rawHeld[agent][ts[i]];
             (uint256 price,) = _nav(ts[i]);
-            out[i] = Holding(ts[i], raw, raw == 0 ? 0 : IB20Asset(ts[i]).toUIAmount(raw), raw * price / 1e10);
+            uint256 shares;
+            if (raw != 0) {
+                try IB20Asset(ts[i]).toUIAmount(raw) returns (uint256 ui) {
+                    shares = ui;
+                } catch {}
+            }
+            out[i] = Holding(ts[i], raw, shares, raw * price / 1e10);
         }
     }
 
@@ -308,13 +355,12 @@ contract AgentStockTreasury {
     function _tryInvest(address agent) internal {
         uint256 p = pendingUsdc[agent];
         if (p == 0 || p < ruleOf[agent].minBuyUsdc) return;
-        uint256 gasBefore = gasleft();
-        try this.investFor(agent) {}
+        // The buy gets a fixed gas budget. If the caller didn't send enough for it, fail the whole call so
+        // eth_estimateGas raises the limit; inside the budget, any failure (including running out of gas or
+        // a venue returning huge revert data) only defers the buy, it can never block the payment.
+        if (gasleft() < INVEST_GAS * 64 / 63 + 30_000) revert OutOfGasForBuy();
+        try this.investFor{gas: INVEST_GAS}(agent) {}
         catch {
-            // If the buy failed only because it ran out of gas, fail the whole call instead of deferring:
-            // otherwise eth_estimateGas would settle on a limit that always skips the buy. (After an
-            // out-of-gas, only the 1/64 of gas kept back by the call is left.)
-            if (gasleft() <= gasBefore / 63) revert OutOfGasForBuy();
             emit BuyDeferred(agent, address(0), "buy failed; USDC stays pending");
         }
     }

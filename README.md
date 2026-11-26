@@ -17,10 +17,16 @@ Built for **Base Stocks Maxxing — Agentic Stock Finance** ("Agents that earn a
 3. **Once enough is pending, the treasury buys the whole basket** through a swap adapter, with a minimum output per leg computed from that stock's **NAV feed** and the slippage cap.
    - All legs or none: if any feed is missing or stale (older than 80 hours, which covers a long weekend), any token has transfers paused, or the venue fills below NAV minus the slippage cap, the whole buy is rolled back and the USDC stays pending. The agent can retry with `invest()` or move it back to cash with `cancelPending()`.
    - Any USDC the venue doesn't take goes back to pending, and the venue's allowance is reset to zero after each leg.
+   - The buy runs with a fixed gas budget (`INVEST_GAS`). A payment that arrives when a buy is due must carry that much extra gas (gas estimation handles it); whatever happens inside the budget, including a venue that runs out of gas or returns a huge revert payload, only defers the buy and can never block the payment.
 4. **Holdings are kept per agent in raw token units.** `holdingsOf` reports every stock the agent holds or held, as **share-equivalent units** (raw × the token's `uiMultiplier`, via B20 `toUIAmount`) and as **USD at NAV**. Splits and reinvested dividends raise the multiplier, so the share-equivalent count follows corporate actions while the raw balance never changes. Share-equivalents are not shares and carry no shareholder rights.
 5. **The agent withdraws** its cash or its stock tokens whenever it wants (`withdraw`). No one else can move them.
 
-**Trust model.** The operator (BotHire) lists stocks with their NAV feeds and chooses the swap venue. Those choices decide the prices at which pending USDC gets invested, so both changes are **time-locked for 2 days** (`proposeListing`/`executeListing`, `proposeAdapter`/`executeAdapter`). An agent that doesn't trust a coming change can move its pending USDC back to cash or withdraw before it takes effect. Cash and stock already bought can only be moved by the agent itself. The contract has a reentrancy lock, and only the agent can trigger a retry of its own buy.
+**Trust model.**
+- The operator (BotHire) lists stocks with their NAV feeds and chooses the swap venue. Those choices decide the prices at which pending USDC gets invested, so both changes are **time-locked**: they can be executed only between 2 and 9 days after being proposed, and can be cancelled. An agent that doesn't trust a coming change can move its pending USDC back to cash (`cancelPending`) or withdraw before it takes effect. Ownership moves in two steps.
+- Cash and stock already bought can only be moved by the agent itself.
+- Anyone can pay an agent (any nonzero amount), and a payment can trigger a buy once enough is pending. An agent that wants to control the timing of its buys can turn on `setPayerPolicy(true)` and approve its payers (e.g. BotHire settlement): other payments are still accepted, they just queue. Retrying a buy (`invest()`) is agent-only.
+- Every fill is checked against NAV and the agent's slippage cap (at most 5%) by the treasury itself.
+- Known limit: all agents' tokens sit in one contract address, so an issuer action against that address (a sanctions block or a seize) would affect every agent's holding of that token. A production version would give each agent its own vault.
 
 ## Why Base Sepolia, and how close it is to mainnet
 
@@ -39,33 +45,33 @@ The treasury contract is the same on both: only the listed tokens, feeds and ada
 
 | Contract | Address |
 |---|---|
-| `AgentStockTreasury` | [`0x07e050c70670649e301db3913277f413888f99ad`](https://sepolia.basescan.org/address/0x07e050c70670649e301db3913277f413888f99ad) |
+| `AgentStockTreasury` | [`0xc5b66109bb440bc6fc6dfa94acbc8c244be69ea1`](https://sepolia.basescan.org/address/0xc5b66109bb440bc6fc6dfa94acbc8c244be69ea1) |
 | `NavSwapVenue` (0.30% fee) | [`0x4b00c0aafff85c7b3e1d113dfb21bd1253bcd5e1`](https://sepolia.basescan.org/address/0x4b00c0aafff85c7b3e1d113dfb21bd1253bcd5e1) |
 | `tNVDAc` (B20) | [`0xB200000000000000000000CD8Ba33afdDCE3A8B9`](https://sepolia.basescan.org/address/0xB200000000000000000000CD8Ba33afdDCE3A8B9) |
 | `tAAPLc` (B20) | [`0xb2000000000000000000006CB02282De8d7537A9`](https://sepolia.basescan.org/address/0xb2000000000000000000006CB02282De8d7537A9) |
 | `tTSLAc` (B20) | [`0xB20000000000000000000054fF9597fA417Ac62D`](https://sepolia.basescan.org/address/0xB20000000000000000000054fF9597fA417Ac62D) |
 | NAV feeds mirroring the mainnet NVDA / AAPL / TSLA feeds | [`0x19349075755640f7fe12ca7e1e738231f714c7b8`](https://sepolia.basescan.org/address/0x19349075755640f7fe12ca7e1e738231f714c7b8), [`0x36ef55375c1e6605802778d81a158fc9ca43079d`](https://sepolia.basescan.org/address/0x36ef55375c1e6605802778d81a158fc9ca43079d), [`0xad5fe5b0d597c47545cc7edac2ea281b42d0b200`](https://sepolia.basescan.org/address/0xad5fe5b0d597c47545cc7edac2ea281b42d0b200) |
 
-All deployment transactions are in `deployments.json`. An earlier version of the treasury (before the security review) is listed in `deployments-v1.json`, with its demo run in `runs/v1/`.
+All deployment transactions are in `deployments.json`. Earlier treasury versions (before review rounds 1 and 2) are listed in `deployments-previous.json`, with their demo runs in `runs/v1/` and `runs/v2/`.
 
 ## A recorded run
 
-`script/agent-demo.mjs`, 2026-11-26. Agent `0xA9A0…C3aD` invests 20% of each earning, 60% tNVDAc / 40% tAAPLc, 1% max slippage, in batches of at least 0.20 USDC.
+`script/agent-demo.mjs`, 2026-11-26, on the current treasury. Agent `0xeC83…F610` invests 20% of each earning, 60% tNVDAc / 40% tAAPLc, 1% max slippage, in batches of at least 0.20 USDC.
 
 | Step | Result | Tx |
 |---|---|---|
-| Agent sets its rule | 20% · 60/40 · 1% · batch ≥ $0.20 | [`0x18b6d3d3…`](https://sepolia.basescan.org/tx/0x18b6d3d302f0d9674915b61772e7a4601b6fe2fdde75832669150cad95f71097) |
-| Job 1: client pays 0.50 USDC | $0.40 cash, $0.10 pending (below the batch size, nothing bought) | [`0xdb89a473…`](https://sepolia.basescan.org/tx/0xdb89a473cace472f4bb82e4fda03fa9aa8f20469de3d8545b8afb8f7e2121d95) |
-| Job 2: client pays 0.50 USDC | $0.20 pending → bought tNVDAc ($0.12) + tAAPLc ($0.08) at NAV | [`0xc4c523d1…`](https://sepolia.basescan.org/tx/0xc4c523d1a016187eadc3705a6c68eee3ebc96e898ee1b4991a9f6820f8a30a96) |
-| Job 3: client pays 1.00 USDC | $0.20 to stocks, bought again; $1.60 cash | [`0xdaa2181c…`](https://sepolia.basescan.org/tx/0xdaa2181cd42c4af1795cf8ad82aaa91205f388477e9531cb257be064853dbe51) |
-| Issuer applies a 2% reinvested dividend to tNVDAc | share-equivalents 0.00164285 → **0.00167571**, raw balance unchanged | [`0x13775df6…`](https://sepolia.basescan.org/tx/0x13775df68d348bf5c5bf8f3375a13934da7dc047016a71aaefb3ce984ae8686c) |
-| Agent withdraws 0.50 USDC of cash | cash $1.60 → $1.10 | [`0x3aacd9d0…`](https://sepolia.basescan.org/tx/0x3aacd9d07da75366b8001c5e3009e595e31845dee55918643fece36d0900ad8e) |
+| Agent sets its rule | 20% · 60/40 · 1% · batch ≥ $0.20 | [`0x2141b0a8…`](https://sepolia.basescan.org/tx/0x2141b0a8980ce6ea918bfd317b43b1211771df5fa0bf01a6ed87be2162c85c00) |
+| Job 1: client pays 0.50 USDC | $0.40 cash, $0.10 pending (below the batch size, nothing bought) | [`0x97a57531…`](https://sepolia.basescan.org/tx/0x97a57531c014970a26aabd74d9d37ec708fa0308bf6ac5ae279bf6985fbe5f0e) |
+| Job 2: client pays 0.50 USDC | $0.20 pending → bought tNVDAc and tAAPLc at NAV minus the 0.30% venue fee ($0.1196 + $0.0798) | [`0x07052e0a…`](https://sepolia.basescan.org/tx/0x07052e0a5f9914a3f2d2640a38f9ebc32f0556037601038ea32735ac6125b11a) |
+| Job 3: client pays 1.00 USDC | $0.20 to stocks, bought again; $1.60 cash | [`0xe491318f…`](https://sepolia.basescan.org/tx/0xe491318f313e7c4964a063d524a29ecff28799b207f0668591b2b2f4c978599c) |
+| Issuer applies a 2% reinvested dividend to tNVDAc | share-equivalents 0.00167571 → **0.00170922**, raw balance unchanged | [`0xce587c2c…`](https://sepolia.basescan.org/tx/0xce587c2c1d4490644d97d04ec2833c31a1ff284a484e5e7acc778e4240db05de) |
+| Agent withdraws 0.50 USDC of cash | cash $1.60 → $1.10 | [`0x289aff55…`](https://sepolia.basescan.org/tx/0x289aff559a8e028ad8249bae1b4456f6d55dadbdfe854f9901f9c6e2746d6fce) |
 
-Purchase prices came from the mirrored NAVs ($151.53 NVDA, $355.08 AAPL at the time, copied from the mainnet Chainlink feeds), minus the venue's 0.30% fee. tNVDAc already carried two earlier 2% test dividends (multiplier 1.0404) from previous runs, which is why its share-equivalents are above its raw balance from the first buy. On testnet the NAV mirror is only refreshed when the keeper runs, so the USD value doesn't move with the test dividend; on mainnet the NAV feed is total-return and would.
+Purchase prices came from the mirrored NAVs ($151.53 NVDA, $355.08 AAPL at the time, copied from the mainnet Chainlink feeds), minus the venue's 0.30% fee. tNVDAc already carried three earlier 2% test dividends from previous runs (multiplier 1.0612), which is why its share-equivalents are above its raw balance from the first buy. On testnet the NAV mirror is only refreshed when the keeper runs, so the USD value doesn't move with the test dividend; on mainnet the NAV feed is total-return and would.
 
 ## What was built during the event
 
-BotHire (the agent marketplace) existed before; everything in this repository is new for Stocks Maxxing: the treasury contract, the Sepolia B20 test stocks, NAV mirroring, the swap venue, the agent demo and the holdings page.
+BotHire (the agent marketplace) existed before; everything in this repository is new for Stocks Maxxing (written and deployed on 2026-11-26, inside the Nov 13 – Dec 12 build period): the treasury contract, the Sepolia B20 test stocks, NAV mirroring, the swap venue, the agent demo and the holdings page. It went through three review rounds; the fixes from each round are in the commit history.
 
 ## Run it yourself
 
@@ -74,7 +80,7 @@ Requires [Foundry](https://getfoundry.sh) and Node 20+.
 ```bash
 git clone --recursive https://github.com/BotHireAgent/bothire-stock-treasury
 cd bothire-stock-treasury
-forge test          # 15 tests on Base's own B20 / factory / policy mocks (base-std)
+forge test          # 21 tests on Base's own B20 / factory / policy mocks (base-std)
 npm install
 forge build
 
@@ -90,9 +96,9 @@ AGENT_KEY_FILE=~/keys/agent-wallet.json CLIENT_KEY_FILE=~/keys/client-wallet.jso
 
 ## Files
 
-- `src/AgentStockTreasury.sol`: the treasury (rules, earnings split, NAV-bounded buys, holdings in shares)
+- `src/AgentStockTreasury.sol`: the treasury (rules, earnings split, NAV-bounded buys, holdings in share-equivalents)
 - `src/mocks/MirroredNavFeed.sol`, `src/mocks/NavSwapVenue.sol`: testnet stand-ins for the NAV feed and the venue
-- `test/Treasury.t.sol`: tests on base-std's B20 mocks: batching, stale or delisted NAV, paused token, a venue outside the slippage cap (payment still succeeds), a re-entrant venue, a venue that takes only part of the USDC, the out-of-gas guard, dividends, withdrawals, time-locked operator changes, rule checks
+- `test/Treasury.t.sol`: tests on base-std's B20 mocks: batching, stale or delisted NAV, paused token, a venue outside the slippage cap (payment still succeeds), a re-entrant venue, a venue that takes only part of the USDC (rollback or refund), a gas-heavy venue and a revert-bomb venue (fixed gas budget), zero and third-party deposits (payer policy), proposal expiry and cancel, dividends, withdrawals, time-locked operator changes, rule checks
 - `script/deploy.mjs`, `script/agent-demo.mjs`: Sepolia deployment and the recorded demo
 - `docs/index.html`: holdings page
 

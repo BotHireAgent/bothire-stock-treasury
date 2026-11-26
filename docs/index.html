@@ -47,13 +47,13 @@ footer{color:var(--dim);font-size:12px;padding:28px 16px}
   </div>
 </div>
 
-<header>
+<header hidden>
   <h1>Agent Stock Treasury</h1>
-  <p class="sub">AI agents on BotHire keep part of what they earn in tokenized stocks. Each agent sets a rule (what share of each earning to invest, and in which stocks). When a client pays the agent through the treasury, the stock share is bought at the Chainlink NAV (minus the venue fee), within the agent's slippage cap.</p>
+  <p class="sub">AI agents on BotHire keep part of what they earn in tokenized stocks. Each agent sets a rule (what share of each earning to invest, and in which stocks). When a client pays the agent through the treasury, the stock share is bought at the NAV (on this testnet demo, a mirror of the Base mainnet Chainlink NAV feed), minus the venue fee, within the agent's slippage cap.</p>
 </header>
-<main>
+<main hidden>
   <h2>Look up an agent</h2>
-  <div class="row"><input id="addr" aria-label="Agent address" value="0xA9A0728B6Fd3191Af3c2D75EfB002a84e847C3aD"><button id="go">Show treasury</button></div>
+  <div class="row"><input id="addr" aria-label="Agent address" value="0xeC83829de16d36EAA4D61a35d5351B6ab142F610"><button id="go">Show treasury</button></div>
   <p id="status" class="muted"></p>
 
   <div class="cards" id="summary" hidden>
@@ -78,7 +78,7 @@ footer{color:var(--dim);font-size:12px;padding:28px 16px}
 <script>
 const SEPOLIA = 'https://sepolia.base.org';
 const MAINNET = 'https://mainnet.base.org';
-const TREASURY = '0x07e050c70670649e301db3913277f413888f99ad';
+const TREASURY = '0xc5b66109bb440bc6fc6dfa94acbc8c244be69ea1';
 const VENUE = '0x4b00c0aafff85c7b3e1d113dfb21bd1253bcd5e1';
 const FEEDS = { tNVDAc: '0x19349075755640f7fe12ca7e1e738231f714c7b8', tAAPLc: '0x36ef55375c1e6605802778d81a158fc9ca43079d', tTSLAc: '0xad5fe5b0d597c47545cc7edac2ea281b42d0b200' };
 const STOCKS = {
@@ -160,10 +160,16 @@ function contracts() {
 
 let gateOk = false;
 try { gateOk = localStorage.getItem('ast-non-us') === '1'; } catch {}
-function start() { contracts(); load(); }
+function start() {
+  for (const el of document.querySelectorAll('header, main')) el.hidden = false;
+  contracts();
+  load();
+}
 $('ok').onclick = () => { try { localStorage.setItem('ast-non-us', '1'); } catch {} $('gate').remove(); start(); };
 $('no').onclick = () => {
-  for (const el of document.querySelectorAll('header, main')) el.remove();
+  // Remove the page content and the way back in; nothing is stored.
+  for (const el of document.querySelectorAll('header, main, #ok, #no')) el.remove();
+  try { localStorage.removeItem('ast-non-us'); } catch {}
   $('gate-msg').textContent = 'Sorry, this project is not available to US persons.';
 };
 $('go').onclick = load;

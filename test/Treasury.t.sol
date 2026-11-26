@@ -93,6 +93,60 @@ contract HalfPullVenue is ISwapAdapter {
     }
 }
 
+/// Burns ~400k gas per leg before filling, like a multi-hop DEX route.
+contract HeavyVenue is ISwapAdapter {
+    NavSwapVenue inner;
+    uint256 public sink;
+
+    constructor(NavSwapVenue inner_) {
+        inner = inner_;
+    }
+
+    function swapExactIn(address tokenIn, address tokenOut, uint256 amountIn, uint256 minOut, address recipient)
+        external
+        returns (uint256)
+    {
+        for (uint256 i; i < 18; i++) {
+            sink = uint256(keccak256(abi.encode(sink, i))); // ~22k gas each (fresh SSTORE pattern)
+        }
+        uint256 g = gasleft();
+        while (g - gasleft() < 300_000) {
+            sink++;
+        }
+        IERC20Min(tokenIn).transferFrom(msg.sender, address(this), amountIn);
+        IERC20Min(tokenIn).approve(address(inner), amountIn);
+        return inner.swapExactIn(tokenIn, tokenOut, amountIn, minOut, recipient);
+    }
+}
+
+/// Reverts with a huge payload ("revert bomb").
+contract RevertBombVenue is ISwapAdapter {
+    function swapExactIn(address, address, uint256, uint256, address) external pure returns (uint256) {
+        assembly {
+            revert(0, 1000000)
+        }
+    }
+}
+
+/// Takes 99% of the USDC it is offered and still delivers at least minOut.
+contract MostlyPullVenue is ISwapAdapter {
+    NavSwapVenue inner;
+
+    constructor(NavSwapVenue inner_) {
+        inner = inner_;
+    }
+
+    function swapExactIn(address tokenIn, address tokenOut, uint256 amountIn, uint256 minOut, address recipient)
+        external
+        returns (uint256)
+    {
+        uint256 take = amountIn * 99 / 100;
+        IERC20Min(tokenIn).transferFrom(msg.sender, address(this), take);
+        IERC20Min(tokenIn).approve(address(inner), take);
+        return inner.swapExactIn(tokenIn, tokenOut, take, minOut, recipient);
+    }
+}
+
 contract TreasuryTest is BaseTest {
     TestUSDC usdc;
     AgentStockTreasury treasury;
@@ -381,5 +435,80 @@ contract TreasuryTest is BaseTest {
         (toks[0], feeds[0]) = (address(usdc), address(nvdaFeed));
         vm.expectRevert(AgentStockTreasury.BadListing.selector); // USDC can't be listed as a stock
         new AgentStockTreasury(IERC20Min(address(usdc)), ISwapAdapter(address(venue)), toks, feeds);
+    }
+
+    // ------------------------------------------------------------------ v3: review round 2
+
+    function test_heavyVenueBuysWithEnoughGasAndNeverSilentlySkips() public {
+        HeavyVenue heavy = new HeavyVenue(venue);
+        AgentStockTreasury t = _deployTreasury(ISwapAdapter(address(heavy)));
+        _rule(agent, t, 2_000, 100, 1e6);
+        for (uint256 g = 300_000; g <= 1_800_000; g += 300_000) {
+            vm.prank(settler);
+            (bool ok,) =
+                address(t).call{gas: g}(abi.encodeCall(AgentStockTreasury.depositEarning, (agent, 10e6, bytes32("j"))));
+            assertFalse(ok, "below the buy budget the payment must revert, not skip the buy");
+        }
+        vm.prank(settler);
+        t.depositEarning{gas: 3_000_000}(agent, 10e6, "j");
+        assertGt(t.rawHeld(agent, address(nvda)), 0, "with enough gas the heavy venue fills");
+    }
+
+    function test_revertBombVenueOnlyDefers() public {
+        AgentStockTreasury t = _deployTreasury(ISwapAdapter(address(new RevertBombVenue())));
+        _rule(agent, t, 2_000, 100, 1e6);
+        vm.prank(settler);
+        t.depositEarning{gas: 5_000_000}(agent, 10e6, "j");
+        assertEq(t.cashUsdc(agent), 8e6, "payment went through");
+        assertEq(t.pendingUsdc(agent), 2e6, "buy deferred");
+    }
+
+    function test_unpulledUsdcIsRefundedToPending() public {
+        MostlyPullVenue mostly = new MostlyPullVenue(venue);
+        AgentStockTreasury t = _deployTreasury(ISwapAdapter(address(mostly)));
+        _rule(agent, t, 2_000, 500, 1e6); // 5% slippage, so 99% of a leg still clears minOut
+        vm.prank(settler);
+        t.depositEarning(agent, 10e6, "j");
+        assertEq(t.pendingUsdc(agent), 2e6 / 100, "1% of the budget came back");
+        assertGt(t.rawHeld(agent, address(nvda)), 0);
+        assertEq(usdc.allowance(address(t), address(mostly)), 0, "allowance reset");
+    }
+
+    function test_zeroDepositRejected() public {
+        _rule(agent, treasury, 2_000, 100, 1e6);
+        vm.prank(address(0xBAD));
+        vm.expectRevert(AgentStockTreasury.ZeroAmount.selector);
+        treasury.depositEarning(agent, 0, "fake");
+    }
+
+    function test_approvedPayerPolicyControlsWhoTriggersBuys() public {
+        _rule(agent, treasury, 2_000, 100, 1e6);
+        vm.startPrank(agent);
+        treasury.setPayerPolicy(true);
+        treasury.setApprovedPayer(settler, true);
+        vm.stopPrank();
+        address stranger = address(0x57A);
+        usdc.mint(stranger, 10e6);
+        vm.startPrank(stranger);
+        usdc.approve(address(treasury), type(uint256).max);
+        treasury.depositEarning(agent, 10e6, "x"); // accepted, but doesn't trigger the buy
+        vm.stopPrank();
+        assertEq(treasury.pendingUsdc(agent), 2e6);
+        vm.prank(settler);
+        treasury.depositEarning(agent, 10e6, "job"); // approved payer triggers it
+        assertEq(treasury.pendingUsdc(agent), 0);
+        assertGt(treasury.rawHeld(agent, address(nvda)), 0);
+    }
+
+    function test_proposalsExpireAndCanBeCancelled() public {
+        treasury.proposeAdapter(ISwapAdapter(address(0xBAD)));
+        vm.warp(block.timestamp + 2 days + 7 days + 1);
+        vm.expectRevert(AgentStockTreasury.Expired.selector);
+        treasury.executeAdapter();
+        treasury.proposeListing(address(nvda), address(0));
+        treasury.cancelListing(address(nvda));
+        vm.warp(block.timestamp + 2 days);
+        vm.expectRevert(AgentStockTreasury.TooEarly.selector);
+        treasury.executeListing(address(nvda));
     }
 }

@@ -1,0 +1,15 @@
+{
+  "v1": {
+    "feeds": {
+      "NVDA": "0xecbdc70dfdf5ffa14d1b0001ae82ad8267fb20a3",
+      "AAPL": "0x818dbca3707864c07c40e52d35619958441a51c3",
+      "TSLA": "0x3d5caea6406ef980c0bd41a0df6394136f7dfea3"
+    },
+    "treasury": "0x356d5523d272e4acb00cc9e76d938d8f69b9ba54",
+    "venue": "0x29849871e7f8335b412d44b41488a1d32b5e6457"
+  },
+  "v2": {
+    "treasury": "0x07e050c70670649e301db3913277f413888f99ad",
+    "note": "before review round 2; superseded"
+  }
+}

@@ -41,18 +41,18 @@
     "feed AAPL": "0x36ef55375c1e6605802778d81a158fc9ca43079d",
     "feed TSLA": "0xad5fe5b0d597c47545cc7edac2ea281b42d0b200",
     "venue": "0x4b00c0aafff85c7b3e1d113dfb21bd1253bcd5e1",
-    "treasury": "0x07e050c70670649e301db3913277f413888f99ad"
+    "treasury": "0xc5b66109bb440bc6fc6dfa94acbc8c244be69ea1"
   },
   "txs": {
     "create tNVDAc": "0x6df0f6d93a2d4b8ade2082f09563fa9ae728556e420ee6753038d54b8e2fba82",
     "create tAAPLc": "0xec2247722899eedf709670ee9cc12a2877d8c065194e6a305ebe1901f33edde9",
     "create tTSLAc": "0x30a5a4e20d64392c885fa0b92d657473a2ed94a2731ac64134ace1bb187b11bf",
     "feed NVDA": "0xaf99d09b6960054fb33c3c121ba97dff4d3966a882a4a5c94d1d8b343c48686e",
-    "mirror NVDA": "0x79d4c4a2bff537dc2514656b9a1fc39b1a327dd929194bd3a7c17ccc17232d44",
+    "mirror NVDA": "0x5a46a1a5aa7a0b102db2e394f22768120a9443d63bc77c39bbec0438f6383c01",
     "feed AAPL": "0x1c708630faa170a46abb5872d8b93e42fffad801aaf5b428312e91f08d4cab62",
-    "mirror AAPL": "0xdc334d0aeb7668ac111ba68782f48e2cf5eef38ddf76bed7f1f5bc260823f7fa",
+    "mirror AAPL": "0xde978b2819ac1e9376e983a5896d7428009e7755d59fb84274dde635c4824768",
     "feed TSLA": "0xc96005fcbfe3b318a0f0dba2b9ca4390945444258006b83e2115451372016cc8",
-    "mirror TSLA": "0xb9012c4673a0fa053a7a543a512774cc37be9bb0afad77e822039fc9ae40ad3f",
+    "mirror TSLA": "0x6263ab3aa3ef919dc7984ec5c2913ec2a3879bc4159a061052d4a47aa3cfba8f",
     "venue": "0xf33e1a3bb2b7bd2c673659573c5f1cf859a9c5e880059f528ba96d894236f387",
     "venue.list NVDA": "0x43794b2d82e48a15933dc0e1acc924eb9e2c1e3edffa877122d23daf7c91ff97",
     "inventory NVDA": "0xacb56c518f8789a1ae2b310937a8d513bd79f6d59938e6ea1655c8ee5c073c5e",
@@ -60,9 +60,9 @@
     "inventory AAPL": "0x0d4e907b34b8e8d678ed74da9a98909877ae68cf966b8d38ce3eb9a2ff0766dc",
     "venue.list TSLA": "0xb1228b793f828a5351b38965accc5c90b963e477e0e58da45237288a037903c3",
     "inventory TSLA": "0x1b7409691ac340279c04f3c91a035f12e537743bc103fff0a956fcdcbba56b69",
-    "treasury": "0xad0e1c2d0a9ac262ecfaa4aaf25fe84b502ba56a2a2107dc5f3985706b98dd27"
+    "treasury": "0x876c32693e0d3d074c37a49ba3071f1a8c9ef5e7b9d86e94939fa49d0b4577d7"
   },
   "usdc": "0x036CbD53842c5426634e7929541eC2318f3dCF7e",
   "venue": "0x4b00c0aafff85c7b3e1d113dfb21bd1253bcd5e1",
-  "treasury": "0x07e050c70670649e301db3913277f413888f99ad"
+  "treasury": "0xc5b66109bb440bc6fc6dfa94acbc8c244be69ea1"
 }
