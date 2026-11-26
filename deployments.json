@@ -1,0 +1,67 @@
+{
+  "chainId": 84532,
+  "deployer": "0x22f9F68156C433Ee7b11565ac47ed32233Ede4c3",
+  "stocks": {
+    "NVDA": {
+      "token": "0xB200000000000000000000CD8Ba33afdDCE3A8B9",
+      "symbol": "tNVDAc",
+      "mainnetToken": "0xb20000000000000000000078ee7ce2fE4908108C",
+      "mainnetFeed": "0x04689a41629776563E6822F76f2e57D148d28513",
+      "feed": "0xecbdc70dfdf5ffa14d1b0001ae82ad8267fb20a3",
+      "mirroredNav": {
+        "answer": "15153047041",
+        "updatedAt": 1795652276
+      }
+    },
+    "AAPL": {
+      "token": "0xb2000000000000000000006CB02282De8d7537A9",
+      "symbol": "tAAPLc",
+      "mainnetToken": "0xb200000000000000000000C2e324d24d7eEcd1fb",
+      "mainnetFeed": "0x787f13dEa48Db0897CbCDD985de77809D837F988",
+      "feed": "0x818dbca3707864c07c40e52d35619958441a51c3",
+      "mirroredNav": {
+        "answer": "35508359116",
+        "updatedAt": 1795640924
+      }
+    },
+    "TSLA": {
+      "token": "0xB20000000000000000000054fF9597fA417Ac62D",
+      "symbol": "tTSLAc",
+      "mainnetToken": "0xb2000000000000000000001e800a7f5189430cD0",
+      "mainnetFeed": "0xFaf869185383a24F8cb00e27BdA6b63B9905DCb4",
+      "feed": "0x3d5caea6406ef980c0bd41a0df6394136f7dfea3",
+      "mirroredNav": {
+        "answer": "38182500000",
+        "updatedAt": 1795652086
+      }
+    }
+  },
+  "txs": {
+    "create tNVDAc": "0x6df0f6d93a2d4b8ade2082f09563fa9ae728556e420ee6753038d54b8e2fba82",
+    "create tAAPLc": "0xec2247722899eedf709670ee9cc12a2877d8c065194e6a305ebe1901f33edde9",
+    "create tTSLAc": "0x30a5a4e20d64392c885fa0b92d657473a2ed94a2731ac64134ace1bb187b11bf",
+    "feed NVDA": "0xc8e67259a8d9d9b2d12b1e9eaf1cdf185a20a11e14c7712fd0be77dc39456a61",
+    "mirror NVDA": "0x13fdb584b5eb7a6cf7f5bb4e2133aded70a5f575267f226e6ffffabe8ef3f4b9",
+    "feed AAPL": "0x06a318478b2b5aecfdfa4a8bbc28da00efb922f5476000f102279228808a7446",
+    "mirror AAPL": "0x46f98f7a108414db2a36990371ab62aae84eeaf6cb8cbeaa2cc3397531659c82",
+    "feed TSLA": "0x0543676ebca8f50551df0efbb792662ce5bf9f73ff8841cc2bc1ac5e25227f16",
+    "mirror TSLA": "0x3c9d80847826f46abcb8282318dd348e26398f98ea830eca8af31c396014ed90",
+    "venue": "0x839dd408666e0bedda65ba7971f6ec6007827517a0881b6e706f3e4e9c204145",
+    "treasury": "0xbd7798d12460a17a0075f2805a0613c7a046df0944c574a89452083e60c90d1f",
+    "venue.list NVDA": "0xa58f477e0e6dff1468b2d305cfdb1ffe1fa3b4f8c969d08f4f851eb467fd9874",
+    "treasury.list NVDA": "0x7396c34a943a7ca3a48f6d16cf7af7adafbf5a61294f986d961ccede4360d376",
+    "inventory NVDA": "0x0c5114599811ce173359b650ee84da129bd7a091725baa4f0204786b449b0a40",
+    "venue.list AAPL": "0x5e2918de6586a4c5dd582b44a003c1c94d2f30762da2da7fa24f050519755f26",
+    "treasury.list AAPL": "0x5c0643edfe7541e03e2073d26887347b6b6587b035e08f25647949fbc9c68c76",
+    "inventory AAPL": "0xe3bce4a6923b5c317e896585d01434234bdbd25e49b17cd00d55377c947d34b1",
+    "venue.list TSLA": "0xaa643eb9024efecd21c104bc9233f4daf50bb3e08d61adc4082e52109ab19bd9",
+    "treasury.list TSLA": "0xdfd30f60642b8c90532be2c01b2d0a222e390174ee5cdded5dd9c7da19028720",
+    "inventory TSLA": "0x8f04ac71e6e2b08d30b6bab407dfb7c6f0bb6638e10c5079e3a3bb10e0463723"
+  },
+  "feed NVDA": "0xecbdc70dfdf5ffa14d1b0001ae82ad8267fb20a3",
+  "feed AAPL": "0x818dbca3707864c07c40e52d35619958441a51c3",
+  "feed TSLA": "0x3d5caea6406ef980c0bd41a0df6394136f7dfea3",
+  "venue": "0x29849871e7f8335b412d44b41488a1d32b5e6457",
+  "treasury": "0x356d5523d272e4acb00cc9e76d938d8f69b9ba54",
+  "usdc": "0x036CbD53842c5426634e7929541eC2318f3dCF7e"
+}

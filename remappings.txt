@@ -1,0 +1,3 @@
+base-std/=lib/base-std/src/
+base-std-test/=lib/base-std/test/
+forge-std/=lib/forge-std/src/
