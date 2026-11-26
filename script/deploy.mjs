@@ -50,7 +50,8 @@ const feedAbi = parseAbi(['function latestRoundData() view returns (uint80, int2
 const art = (name) => JSON.parse(fs.readFileSync(new URL(`../out/${name}.sol/${name}.json`, import.meta.url), 'utf8'));
 
 const file = new URL('../deployments.json', import.meta.url);
-const dep = fs.existsSync(file) ? JSON.parse(fs.readFileSync(file, 'utf8')) : { chainId: 84532, deployer: me.address, stocks: {}, txs: {} };
+const dep = fs.existsSync(file) ? JSON.parse(fs.readFileSync(file, 'utf8')) : { chainId: 84532, deployer: me.address, stocks: {}, contracts: {}, txs: {} };
+dep.contracts ||= {};
 const save = () => fs.writeFileSync(file, JSON.stringify(dep, null, 2) + '\n');
 
 async function send(label, req) {
@@ -63,12 +64,12 @@ async function send(label, req) {
   return rc;
 }
 async function deploy(label, name, args = []) {
-  if (dep[label]) return dep[label];
+  if (dep.contracts[label]) return dep.contracts[label];
   const a = art(name);
   const hash = await wal.deployContract({ abi: a.abi, bytecode: a.bytecode.object, args });
   const rc = await pub.waitForTransactionReceipt({ hash });
   if (rc.status !== 'success') throw new Error(`${label} deploy reverted`);
-  dep[label] = rc.contractAddress;
+  dep.contracts[label] = rc.contractAddress;
   dep.txs[label] = hash;
   save();
   console.log(`  ${label.padEnd(22)} ${rc.contractAddress}`);
@@ -95,7 +96,7 @@ for (const s of STOCKS) {
 }
 // 2. NAV feeds mirroring mainnet
 for (const s of STOCKS) {
-  const feed = await deploy(`feed ${s.sym}`, 'MirroredNavFeed', [`Coinbase ${s.sym} (mirror of Base mainnet)`, s.mainnetFeed]);
+  const feed = await deploy(`feed ${s.sym}`, 'MirroredNavFeed', [`${s.sym} NAV, mirrors Base mainnet feed ${s.mainnetFeed}`, s.mainnetFeed]);
   dep.stocks[s.sym].feed = feed;
   const [, answer, , updatedAt] = await mainnet.readContract({ address: s.mainnetFeed, abi: feedAbi, functionName: 'latestRoundData' });
   await send(`mirror ${s.sym}`, { to: feed, data: encodeFunctionData({ abi: feedAbi, functionName: 'mirror', args: [answer, updatedAt] }) });
@@ -104,21 +105,19 @@ for (const s of STOCKS) {
 }
 // 3. venue + treasury
 const venue = await deploy('venue', 'NavSwapVenue', [30]);
-const treasury = await deploy('treasury', 'AgentStockTreasury', [USDC, venue]);
+const treasury = await deploy('treasury', 'AgentStockTreasury', [USDC, venue, STOCKS.map((s) => dep.stocks[s.sym].token), STOCKS.map((s) => dep.stocks[s.sym].feed)]);
 const vAbi = art('NavSwapVenue').abi;
-const tAbi = art('AgentStockTreasury').abi;
 for (const s of STOCKS) {
   const { token, feed } = dep.stocks[s.sym];
   if ((await pub.readContract({ address: venue, abi: vAbi, functionName: 'feedOf', args: [token] })).toLowerCase() !== feed.toLowerCase()) {
     await send(`venue.list ${s.sym}`, { to: venue, data: encodeFunctionData({ abi: vAbi, functionName: 'list', args: [token, feed] }) });
-  }
-  if ((await pub.readContract({ address: treasury, abi: tAbi, functionName: 'navFeedOf', args: [token] })).toLowerCase() !== feed.toLowerCase()) {
-    await send(`treasury.list ${s.sym}`, { to: treasury, data: encodeFunctionData({ abi: tAbi, functionName: 'listStock', args: [token, feed] }) });
   }
   if ((await pub.readContract({ address: token, abi: b20Abi, functionName: 'balanceOf', args: [venue] })) < INVENTORY / 2n) {
     await send(`inventory ${s.sym}`, { to: token, data: encodeFunctionData({ abi: b20Abi, functionName: 'mint', args: [venue, INVENTORY] }) });
   }
 }
 dep.usdc = USDC;
+dep.treasury = treasury;
+dep.venue = venue;
 save();
 console.log('wrote deployments.json');

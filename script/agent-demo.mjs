@@ -2,8 +2,9 @@
 //   1. the agent sets its rule: invest 20% of each earning, 60% tNVDAc / 40% tAAPLc, 1% max slippage;
 //   2. a client pays the agent for three jobs through the treasury (depositEarning);
 //      the treasury batches the stock share and buys at the mirrored mainnet NAV;
-//   3. the issuer applies a 2% reinvested dividend to tNVDAc (uiMultiplier 1.00 → 1.02):
-//      the agent's raw balance stays the same, its share count goes up.
+//   3. the issuer applies a 2% reinvested dividend to tNVDAc (uiMultiplier × 1.02):
+//      the agent's raw balance stays the same, its share-equivalent count goes up;
+//   4. the agent withdraws part of its USDC cash.
 // Every tx hash and the holdings before/after are written to runs/.
 //
 //   AGENT_KEY_FILE=... CLIENT_KEY_FILE=... ISSUER_KEY_FILE=... node script/agent-demo.mjs
@@ -60,11 +61,11 @@ async function holdings(tag) {
     stocks: await Promise.all(h.map(async (x) => ({
       symbol: await pub.readContract({ address: x.token, abi: b20, functionName: 'symbol' }),
       raw: x.raw.toString(),
-      shares: formatUnits(x.shares, 8),
+      shareEquivalents: formatUnits(x.shares, 8),
       usd: formatUnits(x.usdValue, 6),
     }))),
   };
-  console.log(`  [${tag}] cash ${view.cashUsdc} USDC, pending ${view.pendingUsdc} USDC, ` + view.stocks.map((s) => `${s.symbol} ${s.shares} sh ≈ $${s.usd}`).join(', '));
+  console.log(`  [${tag}] cash ${view.cashUsdc} USDC, pending ${view.pendingUsdc} USDC, ` + view.stocks.map((s) => `${s.symbol} ${s.shareEquivalents} share-eq ≈ $${s.usd}`).join(', '));
   log.push({ holdings: view });
   return view;
 }
@@ -91,7 +92,10 @@ const m0 = await pub.readContract({ address: NVDA, abi: b20, functionName: 'uiMu
 await tx(issuer, 'issuer: tNVDAc 2% dividend', { address: NVDA, abi: b20, functionName: 'updateUIMultiplier', args: [m0 * 102n / 100n, BigInt(now + 20)] });
 await new Promise((r) => setTimeout(r, 30_000));
 const after = await holdings('after dividend');
-console.log(`  tNVDAc shares ${before.stocks[0].shares} → ${after.stocks[0].shares} (raw unchanged: ${before.stocks[0].raw === after.stocks[0].raw})`);
+console.log(`  tNVDAc share-equivalents ${before.stocks[0].shareEquivalents} → ${after.stocks[0].shareEquivalents} (raw unchanged: ${before.stocks[0].raw === after.stocks[0].raw})`);
+// 4. the agent withdraws some of its cash (only it can)
+await tx(agent, 'agent withdraws 0.5 USDC cash', { address: dep.treasury, abi: tAbi, functionName: 'withdraw', args: [dep.usdc, 500_000n, agent.address] });
+await holdings('after withdrawal');
 
 fs.mkdirSync(new URL('../runs/', import.meta.url), { recursive: true });
 const out = new URL(`../runs/demo-${Date.now()}.json`, import.meta.url);

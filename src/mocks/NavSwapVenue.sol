@@ -6,7 +6,7 @@ import {ISwapAdapter, IERC20Min, INavFeed} from "../AgentStockTreasury.sol";
 /// @title NavSwapVenue (testnet only)
 /// @notice Stand-in for a DEX on Base Sepolia, where the real tokenized stocks don't exist. It holds an
 ///         inventory of B20 test stocks and fills USDC → stock at the NAV feed price minus a fee. On
-///         mainnet the treasury uses a real venue (see UniswapV3Adapter) behind the same interface.
+///         mainnet the treasury would use a DEX adapter (e.g. Uniswap v3 SwapRouter02) behind the same interface.
 contract NavSwapVenue is ISwapAdapter {
     address public immutable owner;
     uint16 public immutable feeBps;
