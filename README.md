@@ -56,18 +56,22 @@ All deployment transactions are in `deployments.json`. Earlier treasury versions
 
 ## A recorded run
 
-`script/agent-demo.mjs`, 2026-11-26, on the current treasury. Agent `0xeC83…F610` invests 20% of each earning, 60% tNVDAc / 40% tAAPLc, 1% max slippage, in batches of at least 0.20 USDC.
+`script/agent-demo.mjs`, 2026-11-27, on the current treasury, with BotHire's Base Builder Code attached to every transaction the demo sends (agent, client and issuer). Agent `0x522b…C1D3` invests 20% of each earning, 60% tNVDAc / 40% tAAPLc, 1% max slippage, in batches of at least 0.20 USDC. Full log: [`runs/demo-1795776459047.json`](runs/demo-1795776459047.json).
 
 | Step | Result | Tx |
 |---|---|---|
-| Agent sets its rule | 20% · 60/40 · 1% · batch ≥ $0.20 | [`0x2141b0a8…`](https://sepolia.basescan.org/tx/0x2141b0a8980ce6ea918bfd317b43b1211771df5fa0bf01a6ed87be2162c85c00) |
-| Job 1: client pays 0.50 USDC | $0.40 cash, $0.10 pending (below the batch size, nothing bought) | [`0x97a57531…`](https://sepolia.basescan.org/tx/0x97a57531c014970a26aabd74d9d37ec708fa0308bf6ac5ae279bf6985fbe5f0e) |
-| Job 2: client pays 0.50 USDC | $0.20 pending → bought tNVDAc and tAAPLc at NAV minus the 0.30% venue fee ($0.1196 + $0.0798) | [`0x07052e0a…`](https://sepolia.basescan.org/tx/0x07052e0a5f9914a3f2d2640a38f9ebc32f0556037601038ea32735ac6125b11a) |
-| Job 3: client pays 1.00 USDC | $0.20 to stocks, bought again; $1.60 cash | [`0xe491318f…`](https://sepolia.basescan.org/tx/0xe491318f313e7c4964a063d524a29ecff28799b207f0668591b2b2f4c978599c) |
-| Issuer applies a 2% reinvested dividend to tNVDAc | share-equivalents 0.00167571 → **0.00170922**, raw balance unchanged | [`0xce587c2c…`](https://sepolia.basescan.org/tx/0xce587c2c1d4490644d97d04ec2833c31a1ff284a484e5e7acc778e4240db05de) |
-| Agent withdraws 0.50 USDC of cash | cash $1.60 → $1.10 | [`0x289aff55…`](https://sepolia.basescan.org/tx/0x289aff559a8e028ad8249bae1b4456f6d55dadbdfe854f9901f9c6e2746d6fce) |
+| Agent sets its rule | 20% · 60/40 · 1% · batch ≥ $0.20 | [`0x30b01f0f…`](https://sepolia.basescan.org/tx/0x30b01f0f7cf30f731420fb3fcaa80aedfb21da7607b944c844954e71dc4e1fbd) |
+| Job 1: client pays 0.50 USDC | $0.40 cash, $0.10 pending (below the batch size, nothing bought) | [`0xf019e956…`](https://sepolia.basescan.org/tx/0xf019e9564ad24e054151b6d38f889531d38faad0caf0d7637c259a74ac45dbd8) |
+| Job 2: client pays 0.50 USDC | $0.20 pending → bought tNVDAc and tAAPLc at NAV minus the 0.30% venue fee ($0.1196 + $0.0798) | [`0x6a9e4fda…`](https://sepolia.basescan.org/tx/0x6a9e4fda64fa6f8d310a21a59b1b20092febd12ee3b8294dda611b1e0147ad00) |
+| Job 3: client pays 1.00 USDC | $0.20 to stocks, bought again; $1.60 cash | [`0xdaea4fc3…`](https://sepolia.basescan.org/tx/0xdaea4fc39ff6beb4f32151144ed0f3c40b2d2bc436f4bd8ff555d186086ec8c3) |
+| Issuer applies a 2% reinvested dividend to tNVDAc | share-equivalents 0.00170922 → **0.00174340**, raw balance unchanged | [`0xdfb6ca82…`](https://sepolia.basescan.org/tx/0xdfb6ca826e7e97e218e46c6f61b72e123fd2190e2c74f02214117df664df4089) |
+| Agent withdraws 0.50 USDC of cash | cash $1.60 → $1.10 | [`0x5ec0a037…`](https://sepolia.basescan.org/tx/0x5ec0a03786dd68cfddb9bce031b3fa48f3508712d385c685beaa4d47f668aba6) |
 
-Purchase prices came from the mirrored NAVs ($151.53 NVDA, $355.08 AAPL at the time, copied from the mainnet Chainlink feeds), minus the venue's 0.30% fee. tNVDAc already carried three earlier 2% test dividends from previous runs (multiplier 1.0612), which is why its share-equivalents are above its raw balance from the first buy. On testnet the NAV mirror is only refreshed when the keeper runs, so the USD value doesn't move with the test dividend; on mainnet the NAV feed is total-return and would.
+Purchase prices came from the mirrored NAVs ($151.53 NVDA, $355.08 AAPL, copied from the mainnet Chainlink feeds), minus the venue's 0.30% fee. tNVDAc already carried four earlier 2% test dividends from previous runs (multiplier 1.0824), which is why its share-equivalents are above the raw balance bought. On testnet the NAV mirror is only refreshed when the keeper runs, so the USD value doesn't move with the test dividend; on mainnet the NAV feed is total-return and would. The previous run on the same treasury (2026-11-26, agent `0xeC83…F610`, before the Builder Code) is [`runs/demo-1795691164547.json`](runs/demo-1795691164547.json).
+
+## Base Builder Code
+
+Every transaction the agent demo sends ends with BotHire's [Builder Code](https://docs.base.org/base-chain/builder-codes) `bc_q4i53poy`, encoded as an ERC-8021 data suffix (`Attribution.toDataSuffix` from `ox/erc8021`, set as the viem wallet client's `dataSuffix`). Contracts ignore the trailing bytes; on Base mainnet, Base's indexers read them for attribution. This run is on Base Sepolia, so it shows the code is present and decodable on every transaction, not that any attribution or rewards were earned. The demo checks that each mined transaction's input ends with the suffix, so a missing code fails the run. Decoding the input of any transaction above with `Attribution.fromData` returns `{"codes":["bc_q4i53poy"],"id":0}`. Set the `BUILDER_CODE` environment variable to an empty string to send without it.
 
 ## What was built during the event
 
@@ -91,6 +95,8 @@ KEY_FILE=~/keys/deployer-wallet.json node script/deploy.mjs
 AGENT_KEY_FILE=~/keys/agent-wallet.json CLIENT_KEY_FILE=~/keys/client-wallet.json \
   ISSUER_KEY_FILE=~/keys/deployer-wallet.json node script/agent-demo.mjs
 ```
+
+The demo attaches BotHire's Builder Code to every transaction by default; run it with `BUILDER_CODE=your_code` to use your own, or `BUILDER_CODE=` to send without one.
 
 `docs/index.html` is the holdings page; it reads Base Sepolia and the Base mainnet NAV feeds directly from the browser and needs no server.
 

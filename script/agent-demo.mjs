@@ -12,6 +12,7 @@ import fs from 'node:fs';
 import { createPublicClient, createWalletClient, http, parseAbi, formatUnits, toHex, keccak256 } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 import { baseSepolia } from 'viem/chains';
+import { Attribution } from 'ox/erc8021';
 
 for (const k of ['AGENT_KEY_FILE', 'CLIENT_KEY_FILE', 'ISSUER_KEY_FILE']) {
   if (!process.env[k]) {
@@ -37,12 +38,25 @@ const NVDA = dep.stocks.NVDA.token;
 const AAPL = dep.stocks.AAPL.token;
 const log = [];
 
+// Base Builder Code (ERC-8021): every transaction this demo sends carries BotHire's attribution
+// suffix after the calldata. Contracts ignore the trailing bytes; Base indexers read them.
+const BUILDER_CODE = process.env.BUILDER_CODE ?? 'bc_q4i53poy';
+if (BUILDER_CODE && !/^[A-Za-z0-9_]{1,32}$/.test(BUILDER_CODE)) {
+  console.error(`BUILDER_CODE must be one code of letters, digits and _ (got ${JSON.stringify(BUILDER_CODE)})`);
+  process.exit(2);
+}
+const dataSuffix = BUILDER_CODE ? Attribution.toDataSuffix({ codes: [BUILDER_CODE] }) : undefined;
+
 async function tx(who, label, req) {
-  const wal = createWalletClient({ chain: baseSepolia, transport, account: who });
-  const { request } = await pub.simulateContract({ ...req, account: who });
+  const wal = createWalletClient({ chain: baseSepolia, transport, account: who, dataSuffix });
+  const { request } = await pub.simulateContract({ ...req, account: who, dataSuffix });
   const hash = await wal.writeContract(request);
   const rc = await pub.waitForTransactionReceipt({ hash });
   if (rc.status !== 'success') throw new Error(`${label} reverted ${hash}`);
+  if (dataSuffix) {
+    const sent = await pub.getTransaction({ hash });
+    if (!sent.input.toLowerCase().endsWith(dataSuffix.slice(2).toLowerCase())) throw new Error(`${label}: builder code suffix missing ${hash}`);
+  }
   console.log(`  ${label.padEnd(34)} ${hash}`);
   log.push({ step: label, tx: hash, block: Number(rc.blockNumber) });
   return rc;
@@ -99,5 +113,5 @@ await holdings('after withdrawal');
 
 fs.mkdirSync(new URL('../runs/', import.meta.url), { recursive: true });
 const out = new URL(`../runs/demo-${Date.now()}.json`, import.meta.url);
-fs.writeFileSync(out, JSON.stringify({ treasury: dep.treasury, agent: agent.address, client: client.address, log }, null, 2) + '\n');
+fs.writeFileSync(out, JSON.stringify({ treasury: dep.treasury, agent: agent.address, client: client.address, builderCode: BUILDER_CODE || null, dataSuffix: dataSuffix ?? null, log }, null, 2) + '\n');
 console.log(`wrote runs/${out.pathname.split('/').pop()}`);

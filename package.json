@@ -10,7 +10,8 @@
   "type": "module",
   "private": true,
   "dependencies": {
-    "viem": "^2.58.7"
+    "viem": "^2.58.7",
+    "ox": "0.14.67"
   },
   "version": "0.2.0",
   "engines": {
